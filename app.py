@@ -41,17 +41,21 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     # Ordenar el DataFrame por el día de visita semanal
     orden_dias = ['Jueves', 'Viernes', 'Sábado', 'Domingo', 'Lunes', 'Martes', 'Miércoles']
     reporte['Dia de visita semanal'] = pd.Categorical(reporte['Dia de visita semanal'], categories=orden_dias, ordered=True)
-    reporte = reporte.sort_values(['Dia de visita semanal', 'Contrato'])
+    
+    # Se moverá el sort para el final para manejar NaNs
+    # reporte = reporte.sort_values(['Dia de visita semanal', 'Contrato'])
 
     reporte = pd.merge(reporte, merge_bases[['contrato', 'fecha_contrato','monto_pago_actual', 'sala']], how='left', left_on='Contrato', right_on='contrato')
-    reporte = reporte.drop(columns=['contrato']) # Eliminar columna duplicada
+    if 'contrato' in reporte.columns:
+        reporte = reporte.drop(columns=['contrato']) # Eliminar columna duplicada
 
     reporte['Num Cobrador'] = 1
     reporte['COBRADOR SIN SEGMENTO'] = reporte['cobrador'].apply(quitar_numeros)
     reporte['proyeccion'] = np.where(reporte['Contrato'].isin(proyecciones['Contrato']), 'Proyeccion', 'Sin proyeccion')
 
     # Procesamiento avanzado de Ecobro
-    ecobro['Fecha'] = pd.to_datetime(ecobro['Fecha'])
+    ecobro['Fecha'] = pd.to_datetime(ecobro['Fecha'], errors='coerce')
+    ecobro.dropna(subset=['Fecha'], inplace=True) # Eliminar filas donde la fecha no es válida
     ecobro['Dia de visita semanal'] = ecobro['Fecha'].dt.day_name()
     day_mapping = {
         'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
@@ -59,7 +63,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     }
     ecobro['Dia de visita semanal'] = ecobro['Dia de visita semanal'].map(day_mapping)
     ecobro = ecobro.rename(columns={'No. de Contrato': 'Contrato'})
-    ecobro= ecobro.loc[:,~ecobro.columns.duplicated()]
+    ecobro = ecobro.loc[:,~ecobro.columns.duplicated()]
     ecobro['Monto'] = ecobro['Monto'].astype(str).str.replace('[$,]', '', regex=True)
     ecobro['Monto'] = pd.to_numeric(ecobro['Monto'], errors='coerce').fillna(0)
 
@@ -69,19 +73,24 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         columns='Dia de visita semanal',
         values=['Detalle', 'Monto'],
         aggfunc='first'
-    ).fillna('')
-    ecobro_pivot.columns = [f'{valor}_{dia}' for valor, dia in ecobro_pivot.columns]
+    )
+    if not ecobro_pivot.empty:
+        ecobro_pivot.columns = [f'{valor}_{dia}' for valor, dia in ecobro_pivot.columns]
 
     df_final = pd.merge(reporte, ecobro_pivot, on='Contrato', how='left')
 
     dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     for dia in dias_semana:
         if f'Detalle_{dia}' not in df_final.columns:
-            df_final[f'Detalle_{dia}'] = ''
+            df_final[f'Detalle_{dia}'] = np.nan
         if f'Monto_{dia}' not in df_final.columns:
-            df_final[f'Monto_{dia}'] = 0
+            df_final[f'Monto_{dia}'] = np.nan
     
-    df_final.fillna('', inplace=True)
+    # Llenar NaN específicamente donde se necesita
+    for dia in dias_semana:
+        df_final[f'Detalle_{dia}'] = df_final[f'Detalle_{dia}'].fillna('')
+        df_final[f'Monto_{dia}'] = df_final[f'Monto_{dia}'].fillna(0)
+
 
     def calcular_resultado(fila):
         detalle_cobro = False
@@ -112,7 +121,8 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
     def verificar_dia_visita(fila):
         dia_programado = fila['Dia de visita semanal']
-        if pd.isna(dia_programado): return 'Incorrecto'
+        if pd.isna(dia_programado): 
+            return 'Incorrecto'
         detalle_ese_dia = fila.get(f'Detalle_{dia_programado}', '')
         return 'Correcto' if detalle_ese_dia != '' else 'Incorrecto'
 
@@ -120,9 +130,6 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
     # Renombrar columnas de detalle para el reporte final
     rename_detalle = {f'Detalle_{dia}': dia for dia in dias_semana}
-    # Incluir Sábado y Miércoles con tildes si existen
-    rename_detalle['Detalle_Sábado'] = 'Sábado'
-    rename_detalle['Detalle_Miércoles'] = 'Miércoles'
     df_final = df_final.rename(columns=rename_detalle)
 
     columnas_finales = [
@@ -148,12 +155,13 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     reporte_final = reporte_final.rename(columns=rename_final)
     
     reporte_final['FECHA CONTRATO'] = pd.to_datetime(reporte_final['FECHA CONTRATO'], errors='coerce').dt.date
-    reporte_final = reporte_final.sort_values(['Dia de visita semanal', 'CONTRATO'])
+    # Ordenar al final, manejando los posibles valores nulos
+    reporte_final = reporte_final.sort_values(['Dia de visita semanal', 'CONTRATO'], na_position='last')
 
     # --- Fin del código de procesamiento y inicio de la creación del Excel ---
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        reporte_final.to_excel(writer, sheet_name='Reporte', index=False)
+        reporte_final.to_excel(writer, sheet_name='Reporte', index=False, na_rep='')
         workbook = writer.book
         worksheet = writer.sheets['Reporte']
         header_format = workbook.add_format({
@@ -162,8 +170,12 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         })
         for col_num, value in enumerate(reporte_final.columns.values):
             worksheet.write(0, col_num, value, header_format)
-            column_len = max(reporte_final[value].astype(str).map(len).max(), len(value)) + 2
-            worksheet.set_column(col_num, col_num, column_len)
+            try:
+                # Calcular el ancho de la columna
+                column_len = max(reporte_final[value].astype(str).map(len).max(), len(str(value))) + 2
+                worksheet.set_column(col_num, col_num, column_len)
+            except (AttributeError, TypeError):
+                worksheet.set_column(col_num, col_num, 15) # Ancho por defecto
             
     processed_data = output.getvalue()
     return processed_data
@@ -218,6 +230,8 @@ if all_files_uploaded:
         except Exception as e:
             st.error(f"Ocurrió un error inesperado durante el procesamiento: {e}")
             st.session_state.reporte_generado = None
+            # Para depuración, muestra más detalles del error en la consola
+            st.exception(e)
 
 else:
     st.info("Por favor, cargue los cinco archivos para habilitar la generación del reporte.")

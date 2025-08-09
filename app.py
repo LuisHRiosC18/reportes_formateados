@@ -210,12 +210,21 @@ if all_files_uploaded:
     if st.button("🚀 Generar Reporte", type="primary"):
         try:
             with st.spinner('Procesando datos y generando reporte... Por favor, espere.'):
+                # Función para leer archivos de Excel de forma segura
+                def safe_read_excel(file_uploader):
+                    if file_uploader.name.endswith('.xls'):
+                        return pd.read_excel(file_uploader, engine='xlrd')
+                    else:
+                        return pd.read_excel(file_uploader, engine='openpyxl')
+
                 # Leer los archivos cargados en DataFrames
-                df_cartera = pd.read_excel(cartera_file, sheet_name=3)
-                df_pabs = pd.read_excel(excel_1_file)
-                df_siggo = pd.read_excel(excel_2_file)
-                df_proyecciones = pd.read_excel(proyecciones_file)
-                df_ecobro = pd.read_excel(ecobro_file)
+                df_cartera = safe_read_excel(cartera_file)
+                # La hoja de Cartera es específica
+                df_cartera = pd.read_excel(cartera_file, sheet_name=3, engine='openpyxl' if cartera_file.name.endswith('.xlsx') else 'xlrd')
+                df_pabs = safe_read_excel(excel_1_file)
+                df_siggo = safe_read_excel(excel_2_file)
+                df_proyecciones = safe_read_excel(proyecciones_file)
+                df_ecobro = safe_read_excel(ecobro_file)
 
                 # Generar el reporte
                 reporte_bytes = generate_report(df_cartera, df_pabs, df_siggo, df_proyecciones, df_ecobro)

@@ -42,12 +42,35 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     orden_dias = ['Jueves', 'Viernes', 'Sábado', 'Domingo', 'Lunes', 'Martes', 'Miércoles']
     reporte['Dia de visita semanal'] = pd.Categorical(reporte['Dia de visita semanal'], categories=orden_dias, ordered=True)
     
-    # Se moverá el sort para el final para manejar NaNs
-    # reporte = reporte.sort_values(['Dia de visita semanal', 'Contrato'])
+    # --- Lógica condicional para la columna 'sala' ---
+    columns_to_merge = ['contrato', 'fecha_contrato', 'monto_pago_actual']
+    
+    # Verificar si 'sala' existe en la base de PABS (excel_1)
+    if 'sala' in merge_bases.columns:
+        columns_to_merge.append('sala')
+        reporte = pd.merge(reporte, merge_bases[columns_to_merge], how='left', left_on='Contrato', right_on='contrato')
+    else:
+        # Si no existe, se fusiona sin 'sala' y se crea manualmente
+        reporte = pd.merge(reporte, merge_bases[columns_to_merge], how='left', left_on='Contrato', right_on='contrato')
+        
+        st.warning("La columna 'sala' no se encontró en la base de PABS. Se generará manualmente a partir del prefijo del contrato.")
+        
+        sala_dict = {
+            'A0': 'ESPARTANOS', 'B0': 'AGUILAS', 'C0': '0', 'D0': 'SOLES', 'DD': 'SOLES', 'E0': '0',
+            'F0': 'ESPARTANOS SLRC', 'FA': 'ESPARTANOS SLRC', 'G0': 'TORRE FUERTE', 'H0': 'LOBOS',
+            'I0': 'VICTORIA', 'IN': 'VICTORIA', 'J0': 'DIAMANTE', 'JJ': 'DIAMANTE', 'K0': 'AGUILAS SLRC',
+            'L0': 'INNOVA', 'LA': 'INNOVA', 'LB': 'INNOVA', 'LL': 'INNOVA', 'M0': 'LEGIONARIOS SLRC',
+            'MA': '0', 'MF': '0', 'N0': 'HALCONES SLRC', 'O0': 'ALFAS', 'OO': 'ALFAS', 'OP': 'ALFAS',
+            'P0': 'EMPLEADO', 'Q0': 'EAR OLIMPO', 'R0': 'ELITE', 'S0': 'ALFAS MXL', 'k0': 'AGUILAS SLRC'
+        }
+        
+        # Crear la columna 'sala' usando el mapeo
+        reporte['contrato_prefix_reporte'] = reporte['Contrato'].astype(str).str[:2].str.upper()
+        reporte['sala'] = reporte['contrato_prefix_reporte'].map(sala_dict)
+        reporte = reporte.drop(columns=['contrato_prefix_reporte'])
 
-    reporte = pd.merge(reporte, merge_bases[['contrato', 'fecha_contrato','monto_pago_actual', 'sala']], how='left', left_on='Contrato', right_on='contrato')
     if 'contrato' in reporte.columns:
-        reporte = reporte.drop(columns=['contrato']) # Eliminar columna duplicada
+        reporte = reporte.drop(columns=['contrato']) # Limpiar columna de contrato duplicada
 
     reporte['Num Cobrador'] = 1
     reporte['COBRADOR SIN SEGMENTO'] = reporte['cobrador'].apply(quitar_numeros)
@@ -212,15 +235,14 @@ if all_files_uploaded:
             with st.spinner('Procesando datos y generando reporte... Por favor, espere.'):
                 # Función para leer archivos de Excel de forma segura
                 def safe_read_excel(file_uploader):
-                    if file_uploader.name.endswith('.xls'):
-                        return pd.read_excel(file_uploader, engine='xlrd')
-                    else:
-                        return pd.read_excel(file_uploader, engine='openpyxl')
+                    engine = 'openpyxl' if file_uploader.name.endswith('.xlsx') else 'xlrd'
+                    return pd.read_excel(file_uploader, engine=engine)
 
                 # Leer los archivos cargados en DataFrames
-                df_cartera = safe_read_excel(cartera_file)
                 # La hoja de Cartera es específica
-                df_cartera = pd.read_excel(cartera_file, sheet_name=3, engine='openpyxl' if cartera_file.name.endswith('.xlsx') else 'xlrd')
+                engine_cartera = 'openpyxl' if cartera_file.name.endswith('.xlsx') else 'xlrd'
+                df_cartera = pd.read_excel(cartera_file, sheet_name=3, engine=engine_cartera)
+                
                 df_pabs = safe_read_excel(excel_1_file)
                 df_siggo = safe_read_excel(excel_2_file)
                 df_proyecciones = safe_read_excel(proyecciones_file)

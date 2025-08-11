@@ -29,13 +29,19 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     merge_bases = pd.merge(cartera, excel_1, how='left', left_on='contrato', right_on='contrato')
 
     # Asegurarse de que las columnas existen antes de seleccionarlas
-    required_cols = ['contrato', 'forma_pago', 'estatus', 'cliente', 'domicilio', 'colonia', 'localidad', 'telefono', 'promotor', 'cobrador', 'Dia de visita semanal']
+    required_cols = ['contrato', 'cliente', 'domicilio', 'colonia', 'localidad', 'telefono', 'promotor']
     for col in required_cols:
         if col not in cartera.columns:
             st.error(f"La columna '{col}' no se encuentra en el archivo 'cartera'. Por favor, verifique el archivo.")
             return None
             
     reporte = cartera[required_cols].copy()
+    # Añadir columnas de SIGGO
+    siggo_cols = ['contrato','forma_pago','estatus','cobrador', 'Dia de visita semanal']
+    
+    #Añadimos las columnas de SIGGO a Reporte
+    reporte = pd.merge(reporte, excel_2[siggo_cols], on='contrato', how='left')
+
     reporte = reporte.rename(columns={'contrato': 'Contrato'}) # Renombrar para consistencia
 
     # Ordenar el DataFrame por el día de visita semanal

@@ -110,9 +110,10 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
     # Pivotar el DataFrame de ecobro
     ecobro_pivot = df_limpio.pivot_table(
-    index='Contrato',
-    columns='Dia de visita semanal',
-    values=['Detalle', 'Monto']
+        index='Contrato',
+        columns='Dia de visita semanal',
+        values=['Detalle', 'Monto'],
+     aggfunc='first'
     )
 
     if not ecobro_pivot.empty:

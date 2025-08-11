@@ -95,16 +95,17 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     ecobro = ecobro.loc[:,~ecobro.columns.duplicated()]
     ecobro['Monto'] = ecobro['Monto'].astype(str).str.replace('[$,]', '', regex=True)
     ecobro['Monto'] = pd.to_numeric(ecobro['Monto'], errors='coerce').fillna(0)
-
-    df_ecobro_ejemplo['prioridad_cobro'] = (df_ecobro_ejemplo['Detalle'] == 'Cobro')
+    
+    #Generar la prioridad del cobro
+    ecobro['prioridad_cobro'] = (ecobro['Detalle'] == 'Cobro')
 
     # 2. Ordenar los datos. Los 'True' (Cobro) irán al final de cada grupo.
-    df_ecobro_ejemplo = df_ecobro_ejemplo.sort_values(by='prioridad_cobro')
+    ecobro = ecobro.sort_values(by='prioridad_cobro')
 
     # 3. Agrupar por contrato y día, y quedarse solo con el último registro de cada grupo
-    df_limpio = df_ecobro_ejemplo.groupby(['Contrato', 'Dia de visita semanal']).last().reset_index()
+    df_limpio = ecobro.groupby(['Contrato', 'Dia de visita semanal']).last().reset_index()
 
-    # Opcional: Eliminar la columna de prioridad que ya no necesitamos
+    # Eliminar la columna de prioridad que ya no necesitamos
     df_limpio = df_limpio.drop(columns=['prioridad_cobro'])
 
     # Pivotar el DataFrame de ecobro

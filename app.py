@@ -17,7 +17,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     Procesa los cinco DataFrames de entrada para generar el reporte final formateado.
     Esta función contiene la lógica de negocio principal y el formato de Excel.
     """
-    # --- Inicio del código de procesamiento del usuario ---
+    # --- Empieza el skibidi procesamiento---
 
     # Procesamiento inicial de Ecobro
     ecobro = ecobro_reporte.copy()

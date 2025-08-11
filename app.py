@@ -101,7 +101,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         index='Contrato',
         columns='Dia de visita semanal',
         values=['Detalle', 'Monto'],
-        aggfunc='first'
+        aggfunc='last'
     )
     if not ecobro_pivot.empty:
         ecobro_pivot.columns = [f'{valor}_{dia}' for valor, dia in ecobro_pivot.columns]

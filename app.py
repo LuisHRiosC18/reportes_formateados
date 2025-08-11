@@ -122,6 +122,8 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     df_final = pd.merge(reporte, ecobro_pivot, on='Contrato', how='left')
 
     dias_semana = ['Jueves', 'Viernes', 'Sábado', 'Domingo','Lunes', 'Martes', 'Miércoles']
+    lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió pago']
+
     for dia in dias_semana:
         if f'Detalle_{dia}' not in df_final.columns:
             df_final[f'Detalle_{dia}'] = np.nan
@@ -135,15 +137,30 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
 
     def calcular_resultado(fila):
-        detalle_cobro = False
-        ultimo_detalle = ''
-        for dia in dias_semana:
-            detalle_dia = fila.get(f'Detalle_{dia}', '')
-            if detalle_dia != '':
-                ultimo_detalle = detalle_dia
-                if detalle_dia == 'Cobro':
-                    detalle_cobro = True
-        return 'Cobro' if detalle_cobro else ultimo_detalle
+    resultado_prioritario = ''
+    ultimo_detalle = ''
+    
+    # Iteramos en el orden de los días para encontrar el último detalle y el mejor prioritario
+    for dia in dias_semana:
+        detalle_dia = fila.get(f'Detalle_{dia}', '')
+        
+        # Si hay un detalle para ese día...
+        if detalle_dia != '':
+            ultimo_detalle = detalle_dia # Siempre actualizamos el último detalle encontrado
+            
+            # Comprobamos si el detalle del día está en nuestra lista de prioridades
+            if detalle_dia in lista_de_prioridad:
+                # Si aún no hemos encontrado un resultado prioritario, este es el primero.
+                if not resultado_prioritario:
+                    resultado_prioritario = detalle_dia
+                else:
+                    # Si ya teníamos uno, comprobamos si el nuevo tiene una prioridad MÁS ALTA
+                    # (es decir, un índice más bajo en la lista)
+                    if lista_de_prioridad.index(detalle_dia) < lista_de_prioridad.index(resultado_prioritario):
+                        resultado_prioritario = detalle_dia
+    
+    # 3. Devuelve el resultado prioritario si se encontró uno; de lo contrario, devuelve el último detalle.
+    return resultado_prioritario if resultado_prioritario else ultimo_detalle
 
     df_final['Resultado'] = df_final.apply(calcular_resultado, axis=1)
 

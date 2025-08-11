@@ -160,7 +160,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
                             resultado_prioritario = detalle_dia
     
     # 3. Devuelve el resultado prioritario si se encontró uno; de lo contrario, devuelve el último detalle.
-    return resultado_prioritario if resultado_prioritario else ultimo_detalle
+        return resultado_prioritario if resultado_prioritario else ultimo_detalle
 
     df_final['Resultado'] = df_final.apply(calcular_resultado, axis=1)
 

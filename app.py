@@ -96,101 +96,93 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     ecobro['Monto'] = ecobro['Monto'].astype(str).str.replace('[$,]', '', regex=True)
     ecobro['Monto'] = pd.to_numeric(ecobro['Monto'], errors='coerce').fillna(0)
     
-    #Generar la prioridad del cobro
-    ecobro['prioridad_cobro'] = (ecobro['Detalle'] == 'Cobro')
+    # --- INICIO DEL NUEVO ALGORITMO ITERATIVO ---
 
-    # 2. Ordenar los datos. Los 'True' (Cobro) irán al final de cada grupo.
-    ecobro = ecobro.sort_values(by='prioridad_cobro')
-
-    # 3. Agrupar por contrato y día, y quedarse solo con el último registro de cada grupo
-    df_limpio = ecobro.groupby(['Contrato', 'Dia de visita semanal']).last().reset_index()
-
-    # Eliminar la columna de prioridad que ya no necesitamos
-    df_limpio = df_limpio.drop(columns=['prioridad_cobro'])
-
-    # Pivotar el DataFrame de ecobro
-    ecobro_pivot = df_limpio.pivot_table(
-        index='Contrato',
-        columns='Dia de visita semanal',
-        values=['Detalle', 'Monto'],
-        aggfunc='first'
-    )
-
-    if not ecobro_pivot.empty:
-        ecobro_pivot.columns = [f'{valor}_{dia}' for valor, dia in ecobro_pivot.columns]
-
-    df_final = pd.merge(reporte, ecobro_pivot, on='Contrato', how='left')
-
-    dias_semana = ['Jueves', 'Viernes', 'Sábado', 'Domingo','Lunes', 'Martes', 'Miércoles']
-    
+    # 1. Inicializar columnas en el reporte final
+    dias_semana = ['Jueves', 'Viernes', 'Sábado', 'Domingo', 'Lunes', 'Martes', 'Miércoles']
     for dia in dias_semana:
-        if f'Detalle_{dia}' not in df_final.columns:
-            df_final[f'Detalle_{dia}'] = np.nan
-        if f'Monto_{dia}' not in df_final.columns:
-            df_final[f'Monto_{dia}'] = np.nan
-    
-    # Llenar NaN específicamente donde se necesita
-    for dia in dias_semana:
-        df_final[f'Detalle_{dia}'] = df_final[f'Detalle_{dia}'].fillna('')
-        df_final[f'Monto_{dia}'] = df_final[f'Monto_{dia}'].fillna(0)
+        reporte[dia] = '' # Llenar con strings vacíos
 
+    # Ordenar ecobro por fecha para obtener fácilmente la última entrada del día
+    ecobro = ecobro.sort_values(by='Fecha')
 
-    def calcular_resultados(fila):
-        # Define la jerarquía de los resultados
+    # 2. Llenar las columnas de los días iterando fila por fila
+    for index, row in reporte.iterrows():
+        contrato_actual = row['Contrato']
+        for dia in dias_semana:
+            # Filtrar ecobro para el contrato y día actual
+            visitas_del_dia = ecobro[(ecobro['Contrato'] == contrato_actual) & (ecobro['Dia de visita semanal'] == dia)]
+
+            if not visitas_del_dia.empty:
+                # Si hubo visitas ese día
+                if 'Cobro' in visitas_del_dia['Detalle'].values:
+                    # Si hubo un 'Cobro', se le da prioridad
+                    reporte.loc[index, dia] = 'Cobro'
+                else:
+                    # Si no, se toma el último detalle registrado para ese día
+                    reporte.loc[index, dia] = visitas_del_dia['Detalle'].iloc[-1]
+
+    # 3. Calcular las columnas de resultado y aportación basadas en los días ya llenos
+    def calcular_resultados_finales(row):
         lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió pago']
-        
         resultado_final = ''
         ultimo_detalle_encontrado = ''
         detalles_de_la_semana = {}
 
-        # 1. Recolectar todos los detalles de la semana y encontrar el último
+        # a. Recolectar todos los detalles de la semana
         for dia in dias_semana:
-            detalle_dia = fila.get(f'Detalle_{dia}', '')
+            detalle_dia = row.get(dia, '')
             if detalle_dia:
                 detalles_de_la_semana[dia] = detalle_dia
                 ultimo_detalle_encontrado = detalle_dia
         
-        # 2. Buscar el resultado con mayor prioridad
+        # b. Buscar el resultado con la mayor prioridad
         for prioridad in lista_de_prioridad:
             if prioridad in detalles_de_la_semana.values():
                 resultado_final = prioridad
-                break # Detenerse al encontrar la prioridad más alta
+                break
         
-        # Si no se encontró ningún resultado prioritario, usar el último detalle visto
         if not resultado_final:
             resultado_final = ultimo_detalle_encontrado
 
-        # 3. Calcular las columnas de aportación basadas en el resultado final
-        aportacion_actual = 0
+        # c. Calcular aportación solo si el resultado es 'Cobro'
+        aportacion_actual = 0.0
         aporto = 0
         dia_cobro = ''
 
         if resultado_final == 'Cobro':
             for dia, detalle in detalles_de_la_semana.items():
                 if detalle == 'Cobro':
-                    aportacion_actual = fila.get(f'Monto_{dia}', 0)
                     dia_cobro = dia
-                    break # Detenerse en el primer cobro encontrado
+                    # Buscar el monto correspondiente en el dataframe original de ecobro
+                    cobro_entry = ecobro[
+                        (ecobro['Contrato'] == row['Contrato']) &
+                        (ecobro['Dia de visita semanal'] == dia_cobro) &
+                        (ecobro['Detalle'] == 'Cobro')
+                    ]
+                    if not cobro_entry.empty:
+                        aportacion_actual = cobro_entry['Monto'].iloc[-1] # Tomar el último monto si hay varios
+                    break
             aporto = 1 if aportacion_actual > 0 else 0
             
         return pd.Series([resultado_final, aportacion_actual, aporto, dia_cobro])
 
-    # Aplicar la función unificada para crear las 4 columnas
-    df_final[['Resultado', 'Aportacion Actual', 'Aporto', 'Dia Cobro']] = df_final.apply(calcular_resultados, axis=1)
-
+    # Aplicar la función para generar las columnas de resultado
+    reporte[['Resultado', 'Aportacion Actual', 'Aporto', 'Dia Cobro']] = reporte.apply(calcular_resultados_finales, axis=1)
+    
+    # --- FIN DEL NUEVO ALGORITMO ---
 
     def verificar_dia_visita(fila):
         dia_programado = fila['Dia de visita semanal']
         if pd.isna(dia_programado): 
             return 'Incorrecto'
-        detalle_ese_dia = fila.get(f'Detalle_{dia_programado}', '')
+        # Verificar si la columna del día programado tiene algún contenido
+        detalle_ese_dia = fila.get(str(dia_programado), '')
         return 'Correcto' if detalle_ese_dia != '' else 'Incorrecto'
 
-    df_final['Dia Visita Correcto'] = df_final.apply(verificar_dia_visita, axis=1)
+    reporte['Dia Visita Correcto'] = reporte.apply(verificar_dia_visita, axis=1)
 
-    # Renombrar columnas de detalle para el reporte final
-    rename_detalle = {f'Detalle_{dia}': dia for dia in dias_semana}
-    df_final = df_final.rename(columns=rename_detalle)
+    df_final = reporte # Renombrar para consistencia con el resto del script
 
     columnas_finales = [
         'Contrato', 'fecha_contrato', 'forma_pago', 'estatus', 'sala', 'cliente',
@@ -312,4 +304,3 @@ if st.session_state.reporte_generado:
         file_name="reporte_formateado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-

@@ -97,6 +97,12 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     ecobro['Monto'] = pd.to_numeric(ecobro['Monto'], errors='coerce').fillna(0)
     
     # --- INICIO DEL NUEVO ALGORITMO ITERATIVO ---
+    
+    # MODIFICACIÓN: Convertir todos los contratos a mayúsculas para estandarizar
+    reporte['Contrato'] = reporte['Contrato'].astype(str).str.upper()
+    ecobro['Contrato'] = ecobro['Contrato'].astype(str).str.upper()
+    proyecciones['Contrato'] = proyecciones['Contrato'].astype(str).str.upper()
+
 
     # 1. Inicializar columnas en el reporte final
     dias_semana = ['Jueves', 'Viernes', 'Sábado', 'Domingo', 'Lunes', 'Martes', 'Miércoles']

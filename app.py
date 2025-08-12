@@ -113,7 +113,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         index='Contrato',
         columns='Dia de visita semanal',
         values=['Detalle', 'Monto'],
-     aggfunc='first'
+        aggfunc='first'
     )
 
     if not ecobro_pivot.empty:
@@ -122,8 +122,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     df_final = pd.merge(reporte, ecobro_pivot, on='Contrato', how='left')
 
     dias_semana = ['Jueves', 'Viernes', 'Sábado', 'Domingo','Lunes', 'Martes', 'Miércoles']
-    lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió pago']
-
+    
     for dia in dias_semana:
         if f'Detalle_{dia}' not in df_final.columns:
             df_final[f'Detalle_{dia}'] = np.nan
@@ -136,47 +135,49 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         df_final[f'Monto_{dia}'] = df_final[f'Monto_{dia}'].fillna(0)
 
 
-    def calcular_resultado(fila):
-        resultado_prioritario = ''
-        ultimo_detalle = ''
-    
-    # Iteramos en el orden de los días para encontrar el último detalle y el mejor prioritario
+    def calcular_resultados(fila):
+        # Define la jerarquía de los resultados
+        lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió pago']
+        
+        resultado_final = ''
+        ultimo_detalle_encontrado = ''
+        detalles_de_la_semana = {}
+
+        # 1. Recolectar todos los detalles de la semana y encontrar el último
         for dia in dias_semana:
             detalle_dia = fila.get(f'Detalle_{dia}', '')
+            if detalle_dia:
+                detalles_de_la_semana[dia] = detalle_dia
+                ultimo_detalle_encontrado = detalle_dia
         
-        # Si hay un detalle para ese día...
-            if detalle_dia != '':
-                ultimo_detalle = detalle_dia # Siempre actualizamos el último detalle encontrado
+        # 2. Buscar el resultado con mayor prioridad
+        for prioridad in lista_de_prioridad:
+            if prioridad in detalles_de_la_semana.values():
+                resultado_final = prioridad
+                break # Detenerse al encontrar la prioridad más alta
+        
+        # Si no se encontró ningún resultado prioritario, usar el último detalle visto
+        if not resultado_final:
+            resultado_final = ultimo_detalle_encontrado
+
+        # 3. Calcular las columnas de aportación basadas en el resultado final
+        aportacion_actual = 0
+        aporto = 0
+        dia_cobro = ''
+
+        if resultado_final == 'Cobro':
+            for dia, detalle in detalles_de_la_semana.items():
+                if detalle == 'Cobro':
+                    aportacion_actual = fila.get(f'Monto_{dia}', 0)
+                    dia_cobro = dia
+                    break # Detenerse en el primer cobro encontrado
+            aporto = 1 if aportacion_actual > 0 else 0
             
-            # Comprobamos si el detalle del día está en nuestra lista de prioridades
-                if detalle_dia in lista_de_prioridad:
-                # Si aún no hemos encontrado un resultado prioritario, este es el primero.
-                    if not resultado_prioritario:
-                        resultado_prioritario = detalle_dia
-                    else:
-                    # Si ya teníamos uno, comprobamos si el nuevo tiene una prioridad MÁS ALTA
-                    # (es decir, un índice más bajo en la lista)
-                        if lista_de_prioridad.index(detalle_dia) < lista_de_prioridad.index(resultado_prioritario):
-                            resultado_prioritario = detalle_dia
-    
-    # 3. Devuelve el resultado prioritario si se encontró uno; de lo contrario, devuelve el último detalle.
-        return resultado_prioritario if resultado_prioritario else ultimo_detalle
+        return pd.Series([resultado_final, aportacion_actual, aporto, dia_cobro])
 
-    df_final['Resultado'] = df_final.apply(calcular_resultado, axis=1)
+    # Aplicar la función unificada para crear las 4 columnas
+    df_final[['Resultado', 'Aportacion Actual', 'Aporto', 'Dia Cobro']] = df_final.apply(calcular_resultados, axis=1)
 
-    def calcular_columnas_cobro(fila):
-        aportacion = 0
-        dia_de_cobro = ''
-        if fila['Resultado'] == 'Cobro':
-            for dia in dias_semana:
-                if fila.get(f'Detalle_{dia}', '') == 'Cobro':
-                    aportacion = fila.get(f'Monto_{dia}', 0)
-                    dia_de_cobro = dia
-                    break
-        aporto = 1 if aportacion > 0 else 0
-        return pd.Series([aportacion, aporto, dia_de_cobro])
-
-    df_final[['Aportacion Actual', 'Aporto', 'Dia Cobro']] = df_final.apply(calcular_columnas_cobro, axis=1)
 
     def verificar_dia_visita(fila):
         dia_programado = fila['Dia de visita semanal']
@@ -311,3 +312,4 @@ if st.session_state.reporte_generado:
         file_name="reporte_formateado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+

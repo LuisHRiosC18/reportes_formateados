@@ -93,6 +93,8 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     # 2. Iterar por día y prioridad para llenar las columnas
     for dia in dias_semana:
         df_aux = ecobro[ecobro['Dia de visita semanal'] == dia].copy()
+        # FIX: Reset index on the auxiliary dataframe to prevent reindexing errors
+        df_aux.reset_index(drop=True, inplace=True)
         
         # Procesar por prioridad
         for prioridad in ['Cobro', 'No tenía dinero', 'Difirió el pago']:

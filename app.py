@@ -105,7 +105,8 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         df_aux.reset_index(drop=True, inplace=True)
         
         # Procesar por prioridad
-        for prioridad in ['Cobro', 'Promesa de pago Lunes','Promesa de pago Martes','Promesa de pago Miercoles','Promesa de pago Jueves','Promesa de pago Viernes','No tenía dinero', 'Difirió el pago']:
+        for prioridad in ['Cobro', 'Promesa de pago Lunes','Promesa de pago Martes','Promesa de pago Miercoles','Promesa de pago Jueves','Promesa de pago Viernes','Promesa de pago Sabado',
+                          'Promesa de pago Domingo', 'Promesa de pago siguiente Qna', 'Promesa de pago siguiente Mes','No tenía dinero', 'Difirió el pago']:
             contratos_prioritarios = df_aux[df_aux['Detalle'] == prioridad]['Contrato'].unique()
             if len(contratos_prioritarios) > 0:
                 # Actualizar el reporte principal

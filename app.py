@@ -23,6 +23,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     ecobro = ecobro_reporte.copy()
     ecobro.columns = ecobro.iloc[0]
     ecobro = ecobro.iloc[1:].reset_index(drop=True)
+    ecobro = ecobro.rename(columns={'No. de contrato': 'Contrato'})
 
     merge_bases = pd.merge(cartera, excel_1, how='left', left_on='contrato', right_on='contrato')
 

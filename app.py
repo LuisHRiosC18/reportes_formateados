@@ -130,7 +130,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
     # 3. Calcular las columnas de resultado y aportación basadas en los días ya llenos
     def calcular_resultados_finales(row):
-        lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió pago']
+        lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió el pago']
         resultado_final = ''
         ultimo_detalle_encontrado = ''
         detalles_de_la_semana = {}

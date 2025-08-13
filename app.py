@@ -125,7 +125,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
     # 4. Calcular el Resultado final y las columnas de aportación
     def calcular_resultados_finales(row):
-        lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió el pago']
+        lista_de_prioridad = ['Cobro', 'Difirió el pago', 'No tenía dinero' ]
         resultado_final = ''
         ultimo_detalle_encontrado = ''
         

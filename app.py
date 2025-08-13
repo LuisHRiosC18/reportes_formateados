@@ -73,20 +73,14 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     reporte['COBRADOR SIN SEGMENTO'] = reporte['cobrador'].apply(quitar_numeros)
     reporte['proyeccion'] = np.where(reporte['Contrato'].isin(proyecciones['Contrato']), 'Proyeccion', 'Sin proyeccion')
 
-    # --- INICIO DE LA MODIFICACIÓN SOLICITADA ---
+    # --- INICIO DE LA MODIFICACIÓN ---
     # Procesamiento avanzado de Ecobro
     ecobro['Fecha'] = pd.to_datetime(ecobro['Fecha'], errors='coerce')
     ecobro.dropna(subset=['Fecha'], inplace=True)
-    
-    # 1. Crear la columna 'Hora' a partir de la columna 'Fecha'.
-    #    La columna 'Fecha' (que es de tipo datetime) ya contiene la hora, así que la extraemos.
     ecobro['Hora'] = ecobro['Fecha'].dt.time
     
-    # 2. Ordenar el DataFrame.
-    #    Para asegurar que las visitas se ordenen cronológicamente,
-    #    ordenamos por la columna 'Fecha' completa. Esto ordena primero por fecha y luego por hora,
-    #    que es el comportamiento correcto y deseado.
-    ecobro = ecobro.sort_values(by='Fecha', ascending=True)
+    # Se elimina el ordenamiento explícito.
+    # Se asume que el archivo 'ecobro' de entrada ya está ordenado cronológicamente.
     # --- FIN DE LA MODIFICACIÓN ---
 
     ecobro['Dia de visita semanal'] = ecobro['Fecha'].dt.day_name()
@@ -122,7 +116,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         # Procesar los detalles restantes (los que no tienen prioridad)
         if not df_aux.empty:
             # Quedarse solo con la última visita del día para los contratos restantes
-            # Como el df_aux hereda el orden de 'ecobro' (ordenado por Fecha), 'keep=last' toma la última hora.
+            # Como se asume que 'ecobro' está ordenado, 'keep=last' toma la última visita.
             ultimas_visitas = df_aux.drop_duplicates(subset='Contrato', keep='last')
             # Crear un diccionario para mapear Contrato -> Detalle
             mapa_ultimos_detalles = pd.Series(ultimas_visitas.Detalle.values, index=ultimas_visitas.Contrato).to_dict()
@@ -157,7 +151,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
             for dia, detalle in detalles_de_la_semana.items():
                 if detalle == 'Cobro':
                     dia_cobro = dia
-                    # Asegurarse de que ecobro esté ordenado por fecha/hora para que iloc[-1] sea el último
+                    # iloc[-1] será el último porque el dataframe original está ordenado
                     cobro_entry = ecobro[(ecobro['Contrato'] == row['Contrato']) & (ecobro['Dia de visita semanal'] == dia_cobro) & (ecobro['Detalle'] == 'Cobro')]
                     if not cobro_entry.empty:
                         aportacion_actual = cobro_entry['Monto'].iloc[-1]
@@ -298,4 +292,3 @@ if not st.session_state.df_para_mostrar.empty:
         file_name="reporte_formateado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-

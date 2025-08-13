@@ -105,7 +105,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         df_aux.reset_index(drop=True, inplace=True)
         
         # Procesar por prioridad
-        for prioridad in ['Cobro', 'No tenía dinero', 'Difirió el pago']:
+        for prioridad in ['Cobro', 'Difirió el pago', 'No tenía dinero']:
             contratos_prioritarios = df_aux[df_aux['Detalle'] == prioridad]['Contrato'].unique()
             if len(contratos_prioritarios) > 0:
                 # Actualizar el reporte principal
@@ -125,7 +125,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
     # 4. Calcular el Resultado final y las columnas de aportación
     def calcular_resultados_finales(row):
-        lista_de_prioridad = ['Cobro', 'Difirió el pago', 'No tenía dinero' ]
+        lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió el pago'  ]
         resultado_final = ''
         ultimo_detalle_encontrado = ''
         

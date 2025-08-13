@@ -76,6 +76,8 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     # Procesamiento avanzado de Ecobro
     ecobro['Fecha'] = pd.to_datetime(ecobro['Fecha'], errors='coerce')
     ecobro.dropna(subset=['Fecha'], inplace=True)
+    # MODIFICACIÓN: Crear columna de Hora
+    ecobro['Hora'] = ecobro['Fecha'].dt.time
     ecobro['Dia de visita semanal'] = ecobro['Fecha'].dt.day_name()
     day_mapping = {
         'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
@@ -83,7 +85,8 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     }
     ecobro['Dia de visita semanal'] = ecobro['Dia de visita semanal'].map(day_mapping)
     ecobro['Monto'] = pd.to_numeric(ecobro['Monto'].astype(str).str.replace('[$,]', '', regex=True), errors='coerce').fillna(0)
-    ecobro = ecobro.sort_values(by='Fecha') # Ordenar por fecha para obtener el último detalle
+    # Ordenar por fecha y hora para obtener el último detalle correctamente
+    ecobro = ecobro.sort_values(by='Fecha') 
 
     # --- INICIO DEL NUEVO ALGORITMO EFICIENTE ---
 
@@ -99,7 +102,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         df_aux.reset_index(drop=True, inplace=True)
         
         # Procesar por prioridad
-        for prioridad in ['Cobro', 'No tenía dinero', 'Difirió el pago']:
+        for prioridad in ['Cobro']:
             contratos_prioritarios = df_aux[df_aux['Detalle'] == prioridad]['Contrato'].unique()
             if len(contratos_prioritarios) > 0:
                 # Actualizar el reporte principal
@@ -110,6 +113,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         # Procesar los detalles restantes (los que no tienen prioridad)
         if not df_aux.empty:
             # Quedarse solo con la última visita del día para los contratos restantes
+            # Como el df_aux hereda el orden de 'ecobro' (ordenado por Fecha), 'keep=last' toma la última hora.
             ultimas_visitas = df_aux.drop_duplicates(subset='Contrato', keep='last')
             # Crear un diccionario para mapear Contrato -> Detalle
             mapa_ultimos_detalles = pd.Series(ultimas_visitas.Detalle.values, index=ultimas_visitas.Contrato).to_dict()
@@ -118,7 +122,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
 
     # 4. Calcular el Resultado final y las columnas de aportación
     def calcular_resultados_finales(row):
-        lista_de_prioridad = ['Cobro']
+        lista_de_prioridad = ['Cobro', 'No tenía dinero', 'Difirió el pago']
         resultado_final = ''
         ultimo_detalle_encontrado = ''
         

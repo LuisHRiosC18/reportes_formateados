@@ -22,8 +22,10 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     # Procesamiento inicial de Ecobro
     ecobro = ecobro_reporte.copy()
     ecobro.columns = ecobro.iloc[0]
+    # FIX: Remove duplicate columns that can cause reindexing errors
+    ecobro = ecobro.loc[:,~ecobro.columns.duplicated()]
     ecobro = ecobro.iloc[1:].reset_index(drop=True)
-    # FIX: Renombrar la columna ANTES de intentar usarla
+    # Renombrar la columna ANTES de intentar usarla
     ecobro = ecobro.rename(columns={'No. de Contrato': 'Contrato'})
 
 
@@ -93,7 +95,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     # 2. Iterar por día y prioridad para llenar las columnas
     for dia in dias_semana:
         df_aux = ecobro[ecobro['Dia de visita semanal'] == dia].copy()
-        # FIX: Reset index on the auxiliary dataframe to prevent reindexing errors
+        # Reset index on the auxiliary dataframe to prevent reindexing errors
         df_aux.reset_index(drop=True, inplace=True)
         
         # Procesar por prioridad

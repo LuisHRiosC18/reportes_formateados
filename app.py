@@ -23,7 +23,9 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     ecobro = ecobro_reporte.copy()
     ecobro.columns = ecobro.iloc[0]
     ecobro = ecobro.iloc[1:].reset_index(drop=True)
-    ecobro = ecobro.rename(columns={'No. de contrato': 'Contrato'})
+    # FIX: Renombrar la columna ANTES de intentar usarla
+    ecobro = ecobro.rename(columns={'No. de Contrato': 'Contrato'})
+
 
     merge_bases = pd.merge(cartera, excel_1, how='left', left_on='contrato', right_on='contrato')
 
@@ -199,7 +201,8 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
                 worksheet.set_column(col_num, col_num, 15)
             
     processed_data = output.getvalue()
-    return processed_data
+    # Devolver también el DataFrame para mostrarlo en la UI
+    return processed_data, reporte_final
 
 # --- Interfaz de Usuario de Streamlit ---
 

@@ -105,7 +105,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         df_aux.reset_index(drop=True, inplace=True)
         
         # Procesar por prioridad
-        for prioridad in ['Cobro', 'Difirió el pago', 'No tenía dinero']:
+        for prioridad in ['Cobro']:
             contratos_prioritarios = df_aux[df_aux['Detalle'] == prioridad]['Contrato'].unique()
             if len(contratos_prioritarios) > 0:
                 # Actualizar el reporte principal

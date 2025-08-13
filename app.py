@@ -17,7 +17,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     Procesa los cinco DataFrames de entrada para generar el reporte final formateado.
     Esta función contiene la lógica de negocio principal y el formato de Excel.
     """
-    # --- Empieza el skibidi procesamiento---
+    # --- Empieza el procesamiento ---
 
     # Procesamiento inicial de Ecobro
     ecobro = ecobro_reporte.copy()
@@ -73,11 +73,22 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     reporte['COBRADOR SIN SEGMENTO'] = reporte['cobrador'].apply(quitar_numeros)
     reporte['proyeccion'] = np.where(reporte['Contrato'].isin(proyecciones['Contrato']), 'Proyeccion', 'Sin proyeccion')
 
+    # --- INICIO DE LA MODIFICACIÓN SOLICITADA ---
     # Procesamiento avanzado de Ecobro
     ecobro['Fecha'] = pd.to_datetime(ecobro['Fecha'], errors='coerce')
     ecobro.dropna(subset=['Fecha'], inplace=True)
-    # MODIFICACIÓN: Crear columna de Hora
+    
+    # 1. Crear la columna 'Hora' a partir de la columna 'Fecha'.
+    #    La columna 'Fecha' (que es de tipo datetime) ya contiene la hora, así que la extraemos.
     ecobro['Hora'] = ecobro['Fecha'].dt.time
+    
+    # 2. Ordenar el DataFrame.
+    #    Para asegurar que las visitas se ordenen cronológicamente,
+    #    ordenamos por la columna 'Fecha' completa. Esto ordena primero por fecha y luego por hora,
+    #    que es el comportamiento correcto y deseado.
+    ecobro = ecobro.sort_values(by='Fecha', ascending=True)
+    # --- FIN DE LA MODIFICACIÓN ---
+
     ecobro['Dia de visita semanal'] = ecobro['Fecha'].dt.day_name()
     day_mapping = {
         'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
@@ -85,8 +96,6 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
     }
     ecobro['Dia de visita semanal'] = ecobro['Dia de visita semanal'].map(day_mapping)
     ecobro['Monto'] = pd.to_numeric(ecobro['Monto'].astype(str).str.replace('[$,]', '', regex=True), errors='coerce').fillna(0)
-    # Ordenar por fecha y hora para obtener el último detalle correctamente
-    ecobro = ecobro.sort_values(by='Fecha') 
 
     # --- INICIO DEL NUEVO ALGORITMO EFICIENTE ---
 
@@ -148,6 +157,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
             for dia, detalle in detalles_de_la_semana.items():
                 if detalle == 'Cobro':
                     dia_cobro = dia
+                    # Asegurarse de que ecobro esté ordenado por fecha/hora para que iloc[-1] sea el último
                     cobro_entry = ecobro[(ecobro['Contrato'] == row['Contrato']) & (ecobro['Dia de visita semanal'] == dia_cobro) & (ecobro['Detalle'] == 'Cobro')]
                     if not cobro_entry.empty:
                         aportacion_actual = cobro_entry['Monto'].iloc[-1]
@@ -288,3 +298,4 @@ if not st.session_state.df_para_mostrar.empty:
         file_name="reporte_formateado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+

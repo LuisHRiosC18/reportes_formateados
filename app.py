@@ -106,7 +106,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         
         # Procesar por prioridad
         for prioridad in ['Cobro', 'Promesa de pago Lunes','Promesa de pago Martes','Promesa de pago Miercoles','Promesa de pago Jueves','Promesa de pago Viernes','Promesa de pago Sabado',
-                          'Promesa de pago Domingo', 'Promesa de pago siguiente Qna', 'Promesa de pago siguiente Mes','No tenía dinero', 'Difirió el pago']:
+                          'Promesa de pago Domingo', 'Promesa de pago siguiente Qna', 'Promesa de Pago siguiente Mes','No tenía dinero', 'Difirió el pago']:
             contratos_prioritarios = df_aux[df_aux['Detalle'] == prioridad]['Contrato'].unique()
             if len(contratos_prioritarios) > 0:
                 # Actualizar el reporte principal
@@ -118,7 +118,7 @@ def generate_report(cartera, excel_1, excel_2, proyecciones, ecobro_reporte):
         if not df_aux.empty:
             # Quedarse solo con la última visita del día para los contratos restantes
             # Como se asume que 'ecobro' está ordenado, 'keep=last' toma la última visita.
-            ultimas_visitas = df_aux.drop_duplicates(subset='Contrato', keep='last')
+            ultimas_visitas = df_aux.drop_duplicates(subset='Contrato', keep='first')
             # Crear un diccionario para mapear Contrato -> Detalle
             mapa_ultimos_detalles = pd.Series(ultimas_visitas.Detalle.values, index=ultimas_visitas.Contrato).to_dict()
             # Actualizar el reporte usando el mapa
